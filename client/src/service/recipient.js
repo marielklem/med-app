@@ -2,13 +2,12 @@ import axios from "axios";
 
 axios.defaults.baseURL = "http://localhost:3001";
 
-export const createCareRecipient = async (name, birthDate) => {
-
+export const createCareRecipient = async (recipient) => {
   const url = "/recipients/create";
   return await axios
     .post(url, {
-      name: name,
-      birthDate: birthDate,
+      name: recipient.name,
+      birthDate: recipient.birthDate,
     })
     .then((res) => res)
     .catch((err) => err);

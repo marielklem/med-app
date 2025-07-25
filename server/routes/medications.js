@@ -3,69 +3,109 @@ const db = require("../db");
 const dateUtil = require("../date-utils");
 
 router.post("/create", (req, res) => {
-  const { userId, medicationName, dosage, frequency, startDate, endDate, status } = req.body;
+  console.log(req.body);
 
-  const doseDates = dateUtil.getRecurringDates(startDate, endDate, frequency);
+  const { userId, medicationName, dosage, frequency, startDate, endDate } =
+    req.body;
 
-  const values = doseDates
-    .map((date) => `(${medicationName}, ${date})`)
-    .join(", ");
+  let medicationId;
 
-  console.log("VALUES-", values);
-  res.status(200).json({ message: "Medication marked as inactive" });
+  try {
+    db.query(
+      "INSERT INTO medications (care_recipient_id, medication_name, dose_amount, recurrence_type, start_date, end_date) VALUE(?, ?, ?, ?, ?, ?)",
+      [userId, medicationName, dosage, frequency, startDate, endDate],
+      (err, result) => {
+        if (err) {
+          res
+            .status(500)
+            .json({ message: "Something went wrong creating medication" });
+        }
 
-  // try {
-  //   const medication = db.query(
-  //     "INSERT INTO medications (care_recipient_id, medication_name, dose_amount, recurrence_type, start_date) VALUES (?, ?, ?, ?, ?, ?, ?)",
-  //     [userId, medicationName, dosage, frequency, startDate, endDate, status],
-  //     (err, results) => {
-  //       if (err) throw err;
-  //     }
-  //   );
+        if (result) {
+          medicationId = result.insertId;
 
-  //   const medicationId = medication[0].id;
+          //if insert is successful then create doses
+          const doseDates = dateUtil.getRecurringDates(
+            startDate,
+            endDate,
+            frequency
+          );
 
-  //   //if insert is successful then create doses
-  //   //1- use start date to calucalte 30 doses.
-  //   const doseDates = getRecurringDates(startDate, frequency);
-  //   console.log(doseDates);
+          const values = doseDates
+            .map((date) => `(${medicationId}, "${date}")`)
+            .join(", ");
 
-  //   const values = doseDates.map(date => `(${medicationId}, ${date})`).join(', ');
+          const sql = `INSERT INTO doses (medication_id, schedule_date) VALUES ${values}`;
 
-  //   console.log('VALUES-', values)
-
-  //   //2-
-  //   const doses = db.query(
-  //     "INSERT INTO doses (medication_id, scheduled_datetime) VALUES (?, ?)",
-  //     [values],
-  //     (err, results) => {
-  //       if (err) throw err;
-  //     }
-  //   );
-  // } catch (err) {
-  //   throw err;
-  // }
+          db.query(sql, (err, result) => {
+            if (err) {
+              res
+                .sendStatus(500)
+                .json({ message: "Something went wrong creating doses" });
+            }
+            if (result) {
+              res.status(201).json({
+                message: "Medication successfully created",
+                id: medicationId,
+              });
+            } else {
+              res.status(500).send;
+            }
+          });
+        }
+      }
+    );
+  } catch (err) {
+    res.status(400).json({ message: "An error occurred" });
+  }
 });
 
+//get medication by userId
 router.get("/user/:userId", (req, res) => {
   const { userId } = req.params;
 
-  const sql =
-    "SELECT * FROM medication m JOIN doses d ON d.medication_id = m.id WHERE m.care_recipient_id = ? AND d.scheduled_datetime > NOW() AND m.is_active = TRUE ORDER BY d.scheduled_datetime ASC LIMIT 10";
+  const medSql = "SELECT * FROM medications WHERE care_recipient_id = ?";
+  try {
+    db.query(medSql, [userId], (err, medicationResults) => {
+      if (medicationResults) {
+        const medIds = medicationResults.map((med) => med.id).join(",");
 
-  db.query(sql, [userId], (err, results) => {});
-  res.status(201).json({ id: result.insertId });
+        const doseSql = `SELECT d.schedule_date, d.taken, d.medication_id, d.id, d.taken_at FROM doses d WHERE d.medication_id IN (${medIds}) AND d.schedule_date > NOW() ORDER BY d.schedule_date ASC`;
+
+        db.query(doseSql, (err, doseResults) => {
+          if (err) {
+            res.status(500).json({ message: "Something went wrong" });
+          } else {
+            const toDto = medicationResults.map((medication) => {
+              const doses = doseResults.filter(
+                (dose) => dose.medication_id === medication.id
+              );
+              return { ...medication, doses };
+            });
+            res.status(200).json(toDto);
+          }
+        });
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Something went wrong" });
+  }
 });
 
-//put needs to accept entire
+//update active status
 router.patch("/:id/deactivate", (req, res) => {
   const { id } = req.params;
   db.query(
     "UPDATE medications SET is_active = FALSE WHERE id = ?",
     [id],
-    (err, results) => {}
+    (err, results) => {
+      if (results) {
+        res.status(200).json({ message: "Medication marked as inactive" });
+      } else {
+        res.status(500).json({ message: "Something went wrong" });
+      }
+    }
   );
-  res.status(200).json({ message: "Medication marked as inactive" });
 });
 
 module.exports = router;

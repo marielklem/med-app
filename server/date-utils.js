@@ -1,26 +1,15 @@
-import { getDay, addMonths, eachMonthOfInterval, addYears, eachWeekOfInterval, parseISO  } from 'date-fns';
+import { getDay, eachWeekOfInterval, eachDayOfInterval, format } from "date-fns";
 
 export function getRecurringDates(start, end, frequency) {
   const recurrenceDay = getDay(start);
 
-  if (frequency === 'weekly') {
-    return eachWeekOfInterval({start, end}, { weekStartsOn: recurrenceDay })
-  } else if (frequency === 'monthly') {
-      const dates = [];
-      const end = addYears(start, 1)
-      let startDate = new Date(start);
-
-      while (startDate <= end) {
-        dates.push(startDate)
-        console.log(dates)
-        startDate.setMonth(startDate.getMonth() + 1)
-      }
-
-      console.log(dates)
-      return dates;
-
-      //TODO: this way is setting first of month, we need the day respected
-      // const end = addYears(start, 1)
-      // return eachMonthOfInterval({start, end}, { weekStartsOn: recurrenceDay })
+  let dateArray;
+  if (frequency === "daily") {
+    dateArray = eachDayOfInterval({ start, end });
+  } else if (frequency === "weekly") {
+    dateArray = eachWeekOfInterval({ start, end }, { weekStartsOn: recurrenceDay });
   }
+
+  return dateArray.map(date => format(date, 'yyyy-MM-dd'))
+  // return dateArray
 }

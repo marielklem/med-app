@@ -1,5 +1,4 @@
 const router = require("express").Router();
-const { response } = require("express");
 const db = require("../db");
 
 router.post("/create", (req, res) => {
@@ -13,23 +12,25 @@ router.post("/create", (req, res) => {
 
       for (const item of results) {
         if (item.name === name) {
-          res.status(400).json({ message: "User already exists" });
+          return res.status(200).json({ id: item.id, name: item.name }); //don't actually do this in real life- this is bad. There should be a seperate get
+        } else {
+          db.query(
+            "INSERT INTO care_recipients (name, date_of_birth) VALUES (?, ?)",
+            [name, birthDate],
+            (err, result) => {
+              if (err) {
+                res.status(500).json({message: "An unknown error occurred"})
+              }
+              res.status(201).json({ id: result.insertId });
+            }
+          );
         }
       }
     }
   );
-  db.query(
-    "INSERT INTO care_recipients (name, date_of_birth) VALUES (?, ?)",
-    [name, birthDate],
-    (err, result) => {
-      if (err) throw err;
-
-      res.status(201).json({ id: result.insertId });
-    }
-  );
 });
 
-router.get("/", (req, res) => {
+router.get("/:userId", (req, res) => {
   const { userId } = req.params;
 
   const sql = `SELECT * FROM care_recipients WHERE id = ?`;

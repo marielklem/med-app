@@ -24,7 +24,7 @@ CREATE TABLE medications (
 CREATE TABLE doses (
     id INT AUTO_INCREMENT PRIMARY KEY,
     medication_id INT NOT NULL,
-    scheduled_datetime DATETIME NOT NULL,
+    schedule_date DATE NOT NULL,
     taken BOOLEAN DEFAULT FALSE,
-    FOREIGN KEY (medication_id) REFERENCES medication(id)
+    FOREIGN KEY (medication_id) REFERENCES medications(id)
 );
